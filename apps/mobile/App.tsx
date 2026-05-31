@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import RouteSuggestionScreen from './screens/RouteSuggestionScreen';
 import PerformancePredictionScreen from './screens/PerformancePredictionScreen';
+import StreakScreen from './screens/StreakScreen';
 
-type Tab = 'routes' | 'prediction';
+type Tab = 'routes' | 'prediction' | 'streak';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('routes');
@@ -31,10 +32,24 @@ export default function App() {
             📊 Prognose
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'streak' && styles.tabItemActive]}
+          onPress={() => setActiveTab('streak')}
+        >
+          <Text style={[styles.tabText, activeTab === 'streak' && styles.tabTextActive]}>
+            🔥 Streak
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Screen content ────────────────────────────────────────────── */}
-      {activeTab === 'routes' ? <RouteSuggestionScreen /> : <PerformancePredictionScreen />}
+      {activeTab === 'routes' ? (
+        <RouteSuggestionScreen />
+      ) : activeTab === 'prediction' ? (
+        <PerformancePredictionScreen />
+      ) : (
+        <StreakScreen />
+      )}
     </SafeAreaView>
   );
 }
