@@ -86,3 +86,23 @@ export interface PaceCalculationResult {
   /** Expected finish time in seconds */
   estimatedTimeSeconds: number;
 }
+
+/** Performance prediction for a single target distance */
+export interface DistancePrediction {
+  /** Target distance in kilometres (e.g. 1, 2, 5, 10) */
+  distanceKm: number;
+  /** Expected finish time in seconds */
+  expectedSeconds: number;
+  /** Optimistic (best-case) finish time in seconds */
+  optimisticSeconds: number;
+  /** Conservative (worst-case) finish time in seconds */
+  conservativeSeconds: number;
+}
+
+/** Result returned by the performance prediction calculation */
+export interface PerformancePredictionResult {
+  /** Predictions for each standard distance */
+  predictions: DistancePrediction[];
+  /** Motivation / progress messages derived from the training data */
+  motivationMessages: string[];
+}

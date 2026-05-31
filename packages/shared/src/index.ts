@@ -5,3 +5,4 @@ export {
   getHeatmapStrokeWidth,
   generateSampleHeatmapData,
 } from './heatmap';
+export { calculatePerformancePredictions } from './prediction';

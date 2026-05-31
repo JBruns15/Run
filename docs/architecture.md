@@ -17,8 +17,9 @@ rationale for the choice made.
 7. [Data Model for Runs](#7-data-model-for-runs)
 8. [Offline Support](#8-offline-support)
 9. [Route Suggestions – OSRM Routing Engine](#9-route-suggestions--osrm-routing-engine)
-10. [Project Structure](#10-project-structure)
-11. [Community Heatmap – Beliebte Laufstrecken](#11-community-heatmap--beliebte-laufstrecken)
+10. [Performance Prediction](#10-performance-prediction)
+11. [Project Structure](#11-project-structure)
+12. [Community Heatmap – Beliebte Laufstrecken](#12-community-heatmap--beliebte-laufstrecken)
 
 ---
 
@@ -249,7 +250,45 @@ filtering via custom profiles.
 
 ---
 
-## 10. Project Structure
+## 10. Performance Prediction
+
+**Decision:** Implement a client-side performance forecast using the **Riegel endurance formula** and a recency-weighted pace average.
+
+### Algorithm (MVP)
+
+1. **Data window**: Filter runs to the last 8 weeks, capped at 20 most-recent entries.
+2. **Weighted average pace**: Pace (min/km) from each run is weighted by
+   `2^(−rank/10)` (exponential decay), so the most-recent run has weight 1.0 and
+   weight halves every 10 runs.
+3. **Distance projection** via Riegel formula:
+   ```
+   T₂ = T₁ × (D₂ / D₁)^1.06
+   ```
+   Using 1 km at average pace as the reference point.
+4. **Confidence interval**: Derived from the sample standard deviation of
+   individual run paces, clamped to 3 %–10 % of the expected time to produce
+   optimistic (−σ) and conservative (+σ) bounds.
+5. **Motivation messages**: Generated when a positive pace trend is detected
+   (newest pace faster than oldest pace in the dataset).
+
+### Standard Forecast Distances
+
+| Distance | Purpose                              |
+|----------|--------------------------------------|
+| 1 km     | Speed reference                      |
+| 2 km     | Short effort                         |
+| 5 km     | Most common recreational race        |
+| 10 km    | Standard half-long distance          |
+
+### Future Extensions
+
+- Heart-rate data, sleep data, weather data (planned).
+- Machine-learning model replacing the Riegel heuristic.
+- Elevation correction factor once elevation data is available from OSRM/GraphHopper.
+
+---
+
+## 11. Project Structure
 
 ```
 run/
@@ -257,12 +296,13 @@ run/
 │   └── mobile/          # Expo React Native app
 │       ├── App.tsx
 │       ├── screens/
-│       │   └── RouteSuggestionScreen.tsx
+│       │   ├── RouteSuggestionScreen.tsx
+│       │   └── PerformancePredictionScreen.tsx
 │       ├── app.json
 │       └── ...
 ├── packages/
 │   ├── types/           # Shared TypeScript interfaces & types
-│   ├── shared/          # Shared business logic (pace calc, routing service, heatmap)
+│   ├── shared/          # Shared business logic (pace calc, routing, heatmap, prediction)
 │   └── ui/              # Shared React Native UI components
 ├── docs/
 │   └── architecture.md  # This document
@@ -274,7 +314,7 @@ run/
 
 ---
 
-## 11. Community Heatmap – Beliebte Laufstrecken
+## 12. Community Heatmap – Beliebte Laufstrecken
 
 **Decision:** Implement a toggleable heatmap layer on the route-suggestion map that
 visualises how frequently individual road/path segments are used by community runners.
