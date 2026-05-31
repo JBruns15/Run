@@ -30,6 +30,30 @@ export interface RouteSuggestionRequest {
   /** Desired distance in kilometres */
   distanceKm: number;
   surface: SurfacePreference;
+  /**
+   * When true the routing engine will try to prefer road segments with a high
+   * community run count.  Falls back to standard OSRM routing when heatmap
+   * data are unavailable.
+   */
+  preferPopularRoutes?: boolean;
+}
+
+/**
+ * Heatmap segment – an anonymised, aggregated record of how often a specific
+ * road/path segment has been used by community runners.
+ *
+ * Only the segment geometry and aggregate counters are stored; no personal
+ * data or individual run records are retained (DSGVO-compliant).
+ */
+export interface HeatmapSegment {
+  /** Stable identifier, typically the OSM way ID (e.g. "osm-way-12345"). */
+  segmentId: string;
+  /** Number of individual runs that traversed this segment. */
+  runCount: number;
+  /** Sum of all run distances on this segment in kilometres. */
+  distanceTotal: number;
+  /** Ordered list of coordinates that describe the segment geometry. */
+  coordinates: Coordinate[];
 }
 
 /** A suggested route returned by the routing engine */
