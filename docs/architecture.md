@@ -19,6 +19,7 @@ rationale for the choice made.
 9. [Route Suggestions – OSRM Routing Engine](#9-route-suggestions--osrm-routing-engine)
 10. [Performance Prediction](#10-performance-prediction)
 11. [Project Structure](#11-project-structure)
+12. [Community Heatmap – Beliebte Laufstrecken](#12-community-heatmap--beliebte-laufstrecken)
 
 ---
 
@@ -301,7 +302,7 @@ run/
 │       └── ...
 ├── packages/
 │   ├── types/           # Shared TypeScript interfaces & types
-│   ├── shared/          # Shared business logic (pace calc, routing, prediction)
+│   ├── shared/          # Shared business logic (pace calc, routing, heatmap, prediction)
 │   └── ui/              # Shared React Native UI components
 ├── docs/
 │   └── architecture.md  # This document
@@ -310,3 +311,87 @@ run/
 ├── tsconfig.base.json
 └── package.json         # Monorepo root (npm workspaces)
 ```
+
+---
+
+## 12. Community Heatmap – Beliebte Laufstrecken
+
+**Decision:** Implement a toggleable heatmap layer on the route-suggestion map that
+visualises how frequently individual road/path segments are used by community runners.
+
+### Feature Overview
+
+| Property          | Detail                                                       |
+|-------------------|--------------------------------------------------------------|
+| Layer type        | `react-native-maps` `Polyline` overlays                      |
+| Colour scale      | Blue → Green → Yellow → Red (low → high usage)               |
+| Data granularity  | Per OSM way segment                                          |
+| Privacy           | Fully anonymised, aggregated counts only (DSGVO-compliant)   |
+| Opt-in            | Users donate data explicitly; opt-out available at any time  |
+
+### Colour Scale
+
+| Colour | Run Count Threshold | Meaning              |
+|--------|---------------------|----------------------|
+| Blue   | < 10                | Selten genutzt       |
+| Green  | 10 – 49             | Regelmäßig genutzt   |
+| Yellow | 50 – 199            | Stark genutzt        |
+| Red    | ≥ 200               | Sehr stark genutzt   |
+
+### Data Model
+
+Only aggregated, anonymous data is stored per segment.  No personal data, no individual
+run records, and no precise start/end addresses are retained in the public dataset.
+
+```ts
+interface HeatmapSegment {
+  segmentId: string;     // e.g. "osm-way-12345"
+  runCount: number;      // total number of runs on this segment
+  distanceTotal: number; // sum of all run distances on this segment (km)
+  coordinates: Coordinate[]; // segment geometry for map rendering
+}
+```
+
+Equivalent PostgreSQL / Supabase table:
+
+```sql
+create table heatmap_segments (
+  segment_id      text primary key,       -- OSM way ID
+  run_count       integer not null default 0,
+  distance_total  numeric(10, 3) not null default 0,
+  coordinates     jsonb not null default '[]'
+);
+
+-- No user_id column – data is never linked to individual users.
+```
+
+### DSGVO / Privacy Requirements
+
+- Data donation is **opt-in**; a consent dialog is shown before any GPS track is
+  contributed to the heatmap.
+- Individual runs are aggregated server-side before they are written to
+  `heatmap_segments`; raw GPS tracks used for aggregation are deleted immediately.
+- No personal identifiers, exact start/end addresses, or per-user run histories are
+  stored in the public heatmap dataset.
+- Users can withdraw consent and request deletion of their contributed data at any time
+  via the account settings screen.
+- The heatmap dataset is treated as public (no RLS required) because it contains no
+  personal data.
+
+### Integration with Route Suggestions
+
+`RouteSuggestionRequest` includes an optional `preferPopularRoutes` flag.  When set to
+`true` the routing service will (in future milestones) bias the OSRM waypoints toward
+highly-rated segments so that generated routes overlap with popular community paths.
+In the current MVP the flag is accepted by the API but the OSRM routing remains
+unchanged; the bias weighting will be implemented when a self-hosted routing engine
+with custom costing profiles is available.
+
+### Implementation Phases
+
+| Phase | Scope                                                          |
+|-------|----------------------------------------------------------------|
+| MVP   | Sample/demo heatmap data; toggle on/off; colour legend         |
+| 1     | Real aggregated data from the app's own user base via Supabase |
+| 2     | Import of public Open-Data GPX collections; community ranking  |
+| 3     | Time-of-day, weekend, and seasonal heatmap filters             |

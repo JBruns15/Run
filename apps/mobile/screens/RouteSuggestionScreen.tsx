@@ -4,6 +4,7 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -11,8 +12,13 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { fetchRouteSuggestions } from '@run/shared';
-import type { Coordinate, RouteSuggestion, SurfacePreference } from '@run/types';
+import {
+  fetchRouteSuggestions,
+  generateSampleHeatmapData,
+  getHeatmapColour,
+  getHeatmapStrokeWidth,
+} from '@run/shared';
+import type { Coordinate, HeatmapSegment, RouteSuggestion, SurfacePreference } from '@run/types';
 
 /** Preset distance options shown as quick-select buttons (in km). */
 const PRESET_DISTANCES: number[] = [3, 5, 10, 15, 21.1];
@@ -54,6 +60,9 @@ export default function RouteSuggestionScreen() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [heatmapSegments, setHeatmapSegments] = useState<HeatmapSegment[]>([]);
+  const [preferPopularRoutes, setPreferPopularRoutes] = useState(false);
 
   /** Request GPS location and use it as the start point. */
   async function handleUseCurrentLocation() {
@@ -68,9 +77,13 @@ export default function RouteSuggestionScreen() {
         return;
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setStartPoint({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      const newCoord = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setStartPoint(newCoord);
       setSuggestions([]);
       setSelectedRouteId(null);
+      if (showHeatmap) {
+        setHeatmapSegments(generateSampleHeatmapData(newCoord));
+      }
     } catch {
       Alert.alert('Fehler', 'Standort konnte nicht ermittelt werden.');
     } finally {
@@ -83,6 +96,20 @@ export default function RouteSuggestionScreen() {
     setStartPoint(event.nativeEvent.coordinate);
     setSuggestions([]);
     setSelectedRouteId(null);
+    if (showHeatmap) {
+      setHeatmapSegments(generateSampleHeatmapData(event.nativeEvent.coordinate));
+    }
+  }
+
+  /** Toggle the heatmap layer on or off, loading segment data as needed. */
+  function handleToggleHeatmap(value: boolean) {
+    setShowHeatmap(value);
+    if (value) {
+      const centre = startPoint ?? { latitude: 48.1351, longitude: 11.582 };
+      setHeatmapSegments(generateSampleHeatmapData(centre));
+    } else {
+      setHeatmapSegments([]);
+    }
   }
 
   /** Update the distance from free-text input. */
@@ -116,7 +143,7 @@ export default function RouteSuggestionScreen() {
     setSelectedRouteId(null);
 
     try {
-      const results = await fetchRouteSuggestions({ origin: startPoint, distanceKm, surface });
+      const results = await fetchRouteSuggestions({ origin: startPoint, distanceKm, surface, preferPopularRoutes });
       if (results.length === 0) {
         Alert.alert('Keine Routen gefunden', 'Für diesen Startpunkt konnten keine Routen generiert werden. Bitte prüfe deine Internetverbindung oder wähle einen anderen Startpunkt.');
       } else {
@@ -160,6 +187,17 @@ export default function RouteSuggestionScreen() {
             maximumZ={19}
             flipY={false}
           />
+
+          {/* Heatmap layer – rendered below route polylines */}
+          {showHeatmap &&
+            heatmapSegments.map((seg) => (
+              <Polyline
+                key={seg.segmentId}
+                coordinates={seg.coordinates}
+                strokeColor={getHeatmapColour(seg.runCount)}
+                strokeWidth={getHeatmapStrokeWidth(seg.runCount)}
+              />
+            ))}
 
           {startPoint && (
             <Marker coordinate={startPoint} title="Startpunkt" pinColor="#E53935" />
@@ -254,6 +292,51 @@ export default function RouteSuggestionScreen() {
               </Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        {/* Heatmap & routing options */}
+        <Text style={styles.sectionLabel}>Kartenoptionen</Text>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleInfo}>
+            <Text style={styles.toggleLabel}>🔥 Heatmap anzeigen</Text>
+            <Text style={styles.toggleHint}>Beliebte Laufstrecken der Community</Text>
+          </View>
+          <Switch
+            value={showHeatmap}
+            onValueChange={handleToggleHeatmap}
+            trackColor={{ false: '#BDBDBD', true: '#FFAB91' }}
+            thumbColor={showHeatmap ? '#E53935' : '#fff'}
+          />
+        </View>
+        {showHeatmap && (
+          <View style={styles.heatmapLegend}>
+            {[
+              { colour: '#1E88E5', label: 'Selten genutzt' },
+              { colour: '#43A047', label: 'Regelmäßig genutzt' },
+              { colour: '#FDD835', label: 'Stark genutzt' },
+              { colour: '#E53935', label: 'Sehr stark genutzt' },
+            ].map(({ colour, label }) => (
+              <View key={colour} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: colour }]} />
+                <Text style={styles.legendLabel}>{label}</Text>
+              </View>
+            ))}
+            <Text style={styles.hintText}>
+              Daten sind vollständig anonymisiert und aggregiert (DSGVO-konform).
+            </Text>
+          </View>
+        )}
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleInfo}>
+            <Text style={styles.toggleLabel}>⭐ Beliebte Strecken bevorzugen</Text>
+            <Text style={styles.toggleHint}>Routenvorschläge nutzen Community-Daten</Text>
+          </View>
+          <Switch
+            value={preferPopularRoutes}
+            onValueChange={setPreferPopularRoutes}
+            trackColor={{ false: '#BDBDBD', true: '#FFAB91' }}
+            thumbColor={preferPopularRoutes ? '#E53935' : '#fff'}
+          />
         </View>
 
         {/* Fetch routes button */}
@@ -471,5 +554,53 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 32,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#212121',
+  },
+  toggleHint: {
+    fontSize: 12,
+    color: '#757575',
+    marginTop: 2,
+  },
+  heatmapLegend: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  legendDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginRight: 10,
+  },
+  legendLabel: {
+    fontSize: 13,
+    color: '#424242',
   },
 });
