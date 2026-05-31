@@ -16,7 +16,8 @@ rationale for the choice made.
 6. [API Layer](#6-api-layer)
 7. [Data Model for Runs](#7-data-model-for-runs)
 8. [Offline Support](#8-offline-support)
-9. [Project Structure](#9-project-structure)
+9. [Route Suggestions – OSRM Routing Engine](#9-route-suggestions--osrm-routing-engine)
+10. [Project Structure](#10-project-structure)
 
 ---
 
@@ -189,18 +190,78 @@ create policy "Users can only access their own runs"
 
 ---
 
-## 9. Project Structure
+## 9. Route Suggestions – OSRM Routing Engine
+
+**Decision:** Use the **OSRM** (Open Source Routing Machine) public API as the MVP
+routing backend for generating round-trip running route suggestions.
+
+### Options Considered
+
+| Option        | Pros                                                     | Cons                                              |
+|---------------|----------------------------------------------------------|---------------------------------------------------|
+| OSRM          | Fully open-source, no API key, fast, OSM data            | No surface filtering, no elevation data on public server |
+| GraphHopper   | Surface/tag filtering, elevation, flexible profiles      | Requires API key (free tier limited) or self-hosting |
+| Valhalla      | Excellent multi-modal support, elevation, costing models | More complex self-hosting                         |
+| Google Routes | Excellent UX                                             | Proprietary, requires billing, not OSM-based      |
+
+### Rationale
+
+- **No API key required**: The OSRM public demo server
+  (`https://router.project-osrm.org`) requires no registration and is ideal for
+  an MVP.
+- **100 % open source and OSM-based**: Satisfies the "no Google Maps dependency"
+  requirement.
+- **Simple integration**: The REST API accepts a semicolon-separated coordinate
+  list and returns GeoJSON geometries, which map directly onto
+  `react-native-maps` `Polyline` coordinates.
+- **Upgrade path**: Switching to GraphHopper or a self-hosted Valhalla instance
+  will add surface-aware routing and elevation data in a later milestone.
+
+### Route Generation Strategy
+
+Three candidate routes are generated per request, one for each of three compass
+bearings spaced 120° apart (0°, 120°, 240°).  For each bearing a midpoint is
+placed at `distanceKm / 2` from the origin.  OSRM then routes:
+`origin → midpoint → origin`, forming an approximate round trip.
+
+```
+origin ──────► midpoint
+  ▲                │
+  └────────────────┘
+```
+
+This produces three geometrically distinct alternatives while keeping each loop
+close to the requested distance.
+
+### Elevation Data
+
+Elevation gain is not available via the OSRM public server.  The
+`elevationMetres` field of `RouteSuggestion` is set to `0` until a routing
+engine with elevation support (e.g. GraphHopper or Valhalla) is integrated.
+
+### Surface Preference
+
+OSRM's `foot` profile is used for all surface preferences in the MVP.
+Surface-aware routing (preferring paved roads vs. trails) will be implemented
+when switching to GraphHopper, which exposes `surface` and `tracktype` tag
+filtering via custom profiles.
+
+---
+
+## 10. Project Structure
 
 ```
 run/
 ├── apps/
 │   └── mobile/          # Expo React Native app
 │       ├── App.tsx
+│       ├── screens/
+│       │   └── RouteSuggestionScreen.tsx
 │       ├── app.json
 │       └── ...
 ├── packages/
 │   ├── types/           # Shared TypeScript interfaces & types
-│   ├── shared/          # Shared business logic (pace calc, formatters)
+│   ├── shared/          # Shared business logic (pace calc, routing service)
 │   └── ui/              # Shared React Native UI components
 ├── docs/
 │   └── architecture.md  # This document
