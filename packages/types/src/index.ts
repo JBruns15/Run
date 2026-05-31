@@ -87,6 +87,69 @@ export interface PaceCalculationResult {
   estimatedTimeSeconds: number;
 }
 
+/** Persisted streak state (stored per user) */
+export interface StreakData {
+  /** Number of consecutive active days in the current streak */
+  currentStreak: number;
+  /** All-time best streak in days */
+  bestStreak: number;
+  /** ISO date (YYYY-MM-DD, UTC) of the last day a run was recorded */
+  lastActiveDate: string;
+  /** Remaining freeze tokens for the current month */
+  freezeTokens: number;
+}
+
+/** Configuration options for the streak system */
+export interface StreakConfig {
+  /**
+   * Allow one rest day per 7-day window without breaking the streak.
+   * Default: false.
+   */
+  restDayBufferEnabled: boolean;
+  /**
+   * Flexible mode: 7 training days within 7–9 calendar days counts as a
+   * 7-day series.  Default: false.
+   */
+  flexibleModeEnabled: boolean;
+  /**
+   * Maximum freeze tokens issued per month.  A freeze token prevents streak
+   * loss for one missed day.  Default: 1.
+   */
+  maxFreezeTokensPerMonth: number;
+}
+
+/** A single streak milestone */
+export interface StreakMilestone {
+  /** Number of days required to reach this milestone */
+  days: number;
+  /** Short label shown in the UI */
+  label: string;
+  /** Emoji accompanying the milestone */
+  emoji: string;
+}
+
+/** Result returned by the streak calculation */
+export interface StreakResult {
+  /** Current streak length in active run days */
+  currentStreak: number;
+  /** All-time best streak in run days */
+  bestStreak: number;
+  /** ISO date (YYYY-MM-DD, UTC) of the most recent run day */
+  lastActiveDate: string | null;
+  /** The next milestone to reach (null when past all milestones) */
+  nextMilestone: StreakMilestone | null;
+  /** Days still needed to reach the next milestone */
+  daysToNextMilestone: number | null;
+  /** Milestones already reached */
+  reachedMilestones: StreakMilestone[];
+  /** Whether the 7-day series goal has been reached */
+  sevenDayGoalReached: boolean;
+  /** Motivation / feedback messages */
+  motivationMessages: string[];
+  /** Unique active run dates (YYYY-MM-DD, UTC) for calendar display */
+  activeDates: string[];
+}
+
 /** Performance prediction for a single target distance */
 export interface DistancePrediction {
   /** Target distance in kilometres (e.g. 1, 2, 5, 10) */
