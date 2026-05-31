@@ -35,10 +35,14 @@ export interface RouteSuggestionRequest {
 /** A suggested route returned by the routing engine */
 export interface RouteSuggestion {
   id: string;
-  /** Human-readable label, e.g. "Short", "Standard", "Alternative" */
+  /** Human-readable label, e.g. "Route A", "Route B", "Route C" */
   label: string;
   /** Estimated distance in kilometres */
   distanceKm: number;
+  /** Estimated elevation gain in metres (0 if unavailable) */
+  elevationMetres: number;
+  /** Human-readable surface description, e.g. "Asphalt" or "Gemischt" */
+  surfaceDescription: string;
   waypoints: Coordinate[];
 }
 
