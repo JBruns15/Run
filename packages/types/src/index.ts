@@ -70,6 +70,26 @@ export interface RouteSuggestion {
   waypoints: Coordinate[];
 }
 
+/** Design variant for a run share card */
+export type ShareCardVariant = 'clean' | 'data' | 'motivation' | 'dark';
+
+/** Derived data used to render a run share card */
+export interface RunShareCardData {
+  run: Run;
+  /** Distance in kilometres, rounded to 2 decimal places */
+  distanceKm: number;
+  /** Human-readable duration string, e.g. "28:45" */
+  formattedDuration: string;
+  /** Human-readable pace string, e.g. "5:30 min/km" */
+  formattedPace: string;
+  /** Localised date string, e.g. "31.05.2026" */
+  formattedDate: string;
+  /** Optional average heart rate in bpm */
+  averageHeartRate?: number;
+  /** Optional current training streak in days */
+  streakDays?: number;
+}
+
 /** Pace expressed as minutes and seconds per kilometre */
 export interface Pace {
   minutesPerKm: number;
