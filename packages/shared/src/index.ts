@@ -6,3 +6,4 @@ export {
   generateSampleHeatmapData,
 } from './heatmap';
 export { calculatePerformancePredictions } from './prediction';
+export { buildShareCardData } from './shareCard';
